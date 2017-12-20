@@ -25,8 +25,11 @@ namespace AspNetCoreCsvImportExport
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            var csvFormatterOptions = new CsvFormatterOptions();
-            csvFormatterOptions.CsvDelimiter = "|";
+            var csvFormatterOptions = new CsvFormatterOptions
+            {
+                CsvDelimiter = ",",
+                Encoding = "UTF-8"
+            };
 
             services.AddMvc(options =>
             {

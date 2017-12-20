@@ -1,3 +1,7 @@
+在源的基础上,改了 导出编码解决中文乱码,
+支持使用[IgnoreDataMember]过滤器忽略导出的属性
+支持使用[Display(Name ="文本")]过滤器修改Header表头
+
 # Import and Export CSV in ASP.NET Core
 
 This article shows how to import and export csv data in an ASP.NET Core application. The InputFormatter and the OutputFormatter classes are used to convert the csv data to the C# model classes. 

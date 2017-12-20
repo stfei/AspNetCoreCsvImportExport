@@ -4,8 +4,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Serialization;
+using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace AspNetCoreCsvImportExport.Formatters
 {
@@ -14,7 +17,7 @@ namespace AspNetCoreCsvImportExport.Formatters
     /// http://www.tugberkugurlu.com/archive/creating-custom-csvmediatypeformatter-in-asp-net-web-api-for-comma-separated-values-csv-format
     /// Adapted for ASP.NET Core and uses ; instead of , for delimiters
     /// </summary>
-    public class CsvOutputFormatter : OutputFormatter
+    public class CsvOutputFormatter : TextOutputFormatter
     {
         private readonly CsvFormatterOptions _options;
 
@@ -31,8 +34,8 @@ namespace AspNetCoreCsvImportExport.Formatters
             }
 
             _options = csvFormatterOptions;
-
-            //SupportedEncodings.Add(Encoding.GetEncoding("utf-8"));
+            SupportedEncodings.Add(Encoding.UTF8);
+            SupportedEncodings.Add(Encoding.Unicode);
         }
 
         protected override bool CanWriteType(Type type)
@@ -57,7 +60,7 @@ namespace AspNetCoreCsvImportExport.Formatters
             return false;
         }
 
-        public async override Task WriteResponseBodyAsync(OutputFormatterWriteContext context)
+        public async override Task WriteResponseBodyAsync(OutputFormatterWriteContext context, Encoding selectedEncoding)
         {
             var response = context.HttpContext.Response;
 
@@ -72,24 +75,36 @@ namespace AspNetCoreCsvImportExport.Formatters
             {
                 itemType = type.GetElementType();
             }
+            var _provider = context.HttpContext.RequestServices.GetService(typeof(IModelMetadataProvider)) as IModelMetadataProvider;
+
+
 
             StringWriter _stringWriter = new StringWriter();
-
+            //这里生成标题
             if (_options.UseSingleLineHeaderInCsv)
             {
+                var model = _provider.GetMetadataForType(itemType);
+                var vals = itemType.GetProperties()
+                   .Where(x => !Attribute.IsDefined(x, typeof(IgnoreDataMemberAttribute)))
+                   .Select(t=> {
+                      return model.GetMetadataForProperty(itemType, t.Name).GetDisplayName();
+                   });                
+
                 _stringWriter.WriteLine(
-                    string.Join<string>(
-                        _options.CsvDelimiter, itemType.GetProperties().Select(x => x.Name)
-                    )
-                );
+                   string.Join<string>(
+                       _options.CsvDelimiter, vals
+                   )
+               );               
             }
 
 
             foreach (var obj in (IEnumerable<object>)context.Object)
             {
 
-                var vals = obj.GetType().GetProperties().Select(
-                    pi => new {
+                var vals = obj.GetType().GetProperties()
+                    .Where(x => !Attribute.IsDefined(x, typeof(IgnoreDataMemberAttribute)))
+                    .Select(pi => new
+                    {
                         Value = pi.GetValue(obj, null)
                     }
                 );
@@ -126,9 +141,10 @@ namespace AspNetCoreCsvImportExport.Formatters
                 _stringWriter.WriteLine(_valueLine.TrimEnd(_options.CsvDelimiter.ToCharArray()));
             }
 
-            var streamWriter = new StreamWriter(response.Body);
+            var streamWriter = new StreamWriter(response.Body, Encoding.UTF8);
             await streamWriter.WriteAsync(_stringWriter.ToString());
             await streamWriter.FlushAsync();
         }
+
     }
 }
